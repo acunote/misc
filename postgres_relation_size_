@@ -41,7 +41,7 @@ L<Munin::Plugin::Pgsql>
 
 =head1 AUTHOR
 
-Gleb Arshinov <gleb@pluron.com>, Pluron, Inc.
+Gleb Arshinov <gleb+munin@pluron.com>, Pluron, Inc.
 
 =head1 COPYRIGHT/License.
 
