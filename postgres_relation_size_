@@ -1,0 +1,119 @@
+#!/usr/bin/perl
+# -*- cperl -*-
+#
+# Copyright (C) 2009 Magnus Hagander, Redpill Linpro AB
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; version 2 dated June,
+# 1991.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301 USA.
+
+=head1 NAME
+
+postgres_relation_size_ - Plugin to monitor PostgreSQL table and
+index sizes.
+
+=head1 CONFIGURATION
+
+Configuration is done through libpq environment variables, for example
+PGUSER, PGDATABASE, etc. For more information, see L<Munin::Plugin::Pgsql>.
+
+To monitor a specific database, link to postgres_relation_size_<databasename>.
+
+=head1 SEE ALSO
+
+L<Munin::Plugin::Pgsql>
+
+=head1 MAGIC MARKERS
+
+ #%# family=auto
+ #%# capabilities=autoconf suggest
+
+=head1 AUTHOR
+
+Gleb Arshinov <gleb@pluron.com>, Pluron, Inc.
+
+=head1 COPYRIGHT/License.
+
+Copyright (c) 2011 Pluron, Inc.
+
+All rights reserved. This program is free software; you can
+redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation; version 2
+dated June, 1991.
+
+=cut
+
+use strict;
+use warnings;
+
+use Munin::Plugin::Pgsql;
+
+my $pg = Munin::Plugin::Pgsql->new(
+    minversion => 8.1,
+    basename  => 'postgres_relation_size_',
+    title     => 'PostgreSQL relation size',
+    info      => 'Size of 20 largest relations (tables and indexes)',
+    vlabel    => 'Size',
+    basequery =>
+      " SELECT relation, size"
+      . " FROM ("
+      . "   SELECT pg_namespace.nspname || '.' || pg_class.relname AS relation,"
+      . "          pg_relation_size(pg_class.oid) AS size"
+      . "   FROM pg_class"
+      . "        LEFT JOIN pg_namespace"
+      . "                  ON (pg_namespace.oid = pg_class.relnamespace)"
+      . "   WHERE pg_namespace.nspname NOT IN ('pg_catalog',"
+      . "                                      'information_schema')"
+      . "   ORDER BY pg_relation_size(pg_class.oid) DESC"
+      . "   LIMIT 20"
+      . " ) top_relations"
+      . " UNION ALL"
+      . "  SELECT 'all remaining' AS relation,"
+      . "         SUM(remaining_relations.size) AS size"
+      . "    FROM ( SELECT relname, pg_relation_size(pg_class.oid) as size"
+      . "           FROM pg_class "
+      . "           ORDER BY pg_relation_size(pg_class.oid) DESC"
+      . "           OFFSET 20 ) remaining_relations",
+    paramdatabase => 1,
+    configquery    =>
+      " SELECT relation, relation"
+      . " FROM ("
+      . "   SELECT pg_namespace.nspname || '.' || pg_class.relname AS relation"
+      . "   FROM pg_class"
+      . "        LEFT JOIN pg_namespace"
+      . "                  ON (pg_namespace.oid = pg_class.relnamespace)"
+      . "   WHERE pg_namespace.nspname NOT IN ('pg_catalog',"
+      . "                                      'information_schema')"
+      . "   ORDER BY pg_relation_size(pg_class.oid) DESC"
+      . "   LIMIT 20"
+      . " ) top_relations"
+      . " UNION ALL"
+      . "  SELECT 'all remaining' AS relation,"
+      . "         'all remaining' AS relation",
+    suggestquery =>
+        "SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate AND NOT datname='postgres' ORDER BY 1 LIMIT 10",
+    graphdraw => 'AREA',
+    graphmin => 0,
+    stack     => 1,
+    base      => 1024
+);
+
+$pg->Process();
+exit(0);
+
+# Queries based on:
+# http://wiki.postgresql.org/wiki/Disk_Usage
+
+# TODO:
+# * allow configuring X for top X (default 20)
