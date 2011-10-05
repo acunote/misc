@@ -28,6 +28,12 @@ tables (including their indexes and TOAST data)
 Configuration is done through libpq environment variables, for example
 PGUSER, PGDATABASE, etc. For more information, see L<Munin::Plugin::Pgsql>.
 
+In addition number of top tables to show is also configurable, with
+the default being 20:
+
+  [postgres_relation_size_]
+     env.limit 20
+
 To monitor a specific database, link to postgres_relation_size_<databasename>.
 
 =head1 SEE ALSO
@@ -59,11 +65,13 @@ use warnings;
 
 use Munin::Plugin::Pgsql;
 
+my $limit = $ENV{limit} || 20;
+
 my $pg = Munin::Plugin::Pgsql->new(
     minversion => 8.1,
     basename  => 'postgres_table_total_size_',
     title     => 'PostgreSQL table total size',
-    info      => 'Size of 20 largest tables (including their indexes and TOAST data)',
+    info      => 'Size of $limit largest tables (including their indexes and TOAST data)',
     vlabel    => 'Size',
     basequery =>
       " SELECT relation, size"
@@ -78,7 +86,7 @@ my $pg = Munin::Plugin::Pgsql->new(
       . "     AND pg_class.relkind <> 'i'"
       . "     AND pg_namespace.nspname !~ '^pg_toast'"
       . "   ORDER BY pg_total_relation_size(pg_class.oid) DESC"
-      . "   LIMIT 20"
+      . "   LIMIT $limit"
       . " ) top_relations"
       . " UNION ALL"
       . "  SELECT 'all remaining' AS relation,"
@@ -88,7 +96,7 @@ my $pg = Munin::Plugin::Pgsql->new(
       . "           FROM pg_class "
       . "           WHERE pg_class.relkind <> 'i'"
       . "           ORDER BY pg_total_relation_size(pg_class.oid) DESC"
-      . "           OFFSET 20 ) remaining_relations",
+      . "           OFFSET $limit ) remaining_relations",
     paramdatabase => 1,
     configquery    =>
       " SELECT relation, relation"
@@ -102,7 +110,7 @@ my $pg = Munin::Plugin::Pgsql->new(
       . "     AND pg_class.relkind <> 'i'"
       . "     AND pg_namespace.nspname !~ '^pg_toast'"
       . "   ORDER BY pg_total_relation_size(pg_class.oid) DESC"
-      . "   LIMIT 20"
+      . "   LIMIT $limit"
       . " ) top_relations"
       . " UNION ALL"
       . "  SELECT 'all remaining' AS relation,"
